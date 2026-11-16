@@ -1,0 +1,2323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WILDFIRE GUARD — AI Forest Fire Prevention & Monitoring</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <style>
+    :root {
+      --bg-dark: #070B0E;
+      --surface: #0E151B;
+      --surface-elevated: #15202B;
+      --surface-border: #1F2E3E;
+      --accent-green: #10B981;
+      --accent-green-glow: rgba(16, 185, 129, 0.25);
+      --accent-amber: #F59E0B;
+      --accent-orange: #F97316;
+      --accent-red: #EF4444;
+      --accent-red-glow: rgba(239, 68, 68, 0.35);
+      --accent-cyan: #06B6D4;
+      --text-main: #F3F4F6;
+      --text-muted: #9CA3AF;
+      --text-subtle: #4B5563;
+      --radius: 12px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* SIDEBAR NAVIGATION (Section 2) */
+    .sidebar {
+      width: 260px;
+      background: var(--surface);
+      border-right: 1px solid var(--surface-border);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+      padding: 20px 14px;
+      z-index: 20;
+    }
+
+    .brand-box {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--surface-border);
+      margin-bottom: 16px;
+    }
+
+    .brand-icon {
+      font-size: 26px;
+      background: rgba(16, 185, 129, 0.15);
+      padding: 8px;
+      border-radius: 10px;
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+
+    .brand-title {
+      font-size: 17px;
+      font-weight: 800;
+      letter-spacing: 1px;
+      color: #FFF;
+    }
+
+    .brand-subtitle {
+      font-size: 10px;
+      color: var(--accent-green);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .nav-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      flex: 1;
+      overflow-y: auto;
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 11px 14px;
+      border-radius: 8px;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-weight: 500;
+      font-size: 14px;
+      transition: all 0.2s ease;
+      border-left: 3px solid transparent;
+    }
+
+    .nav-item:hover {
+      background: var(--surface-elevated);
+      color: #FFF;
+    }
+
+    .nav-item.active {
+      background: var(--surface-elevated);
+      color: var(--accent-green);
+      border-left: 3px solid var(--accent-green);
+      font-weight: 700;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    }
+
+    .sidebar-health {
+      background: rgba(16, 185, 129, 0.08);
+      border: 1px solid rgba(16, 185, 129, 0.2);
+      border-radius: 8px;
+      padding: 12px;
+      font-size: 11px;
+      margin-top: auto;
+    }
+
+    /* MAIN CONTAINER */
+    .main-wrapper {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      background: radial-gradient(circle at 80% 10%, rgba(239, 68, 68, 0.04) 0%, transparent 50%),
+                  radial-gradient(circle at 20% 90%, rgba(16, 185, 129, 0.03) 0%, transparent 60%);
+    }
+
+    /* HEADER (Section 1) */
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--surface-border);
+      padding: 14px 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    .header-left h1 {
+      font-size: 20px;
+      font-weight: 700;
+      color: #FFF;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .header-tagline {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+    }
+
+    .status-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(16, 185, 129, 0.12);
+      border: 1px solid var(--accent-green);
+      color: var(--accent-green);
+      font-size: 11.5px;
+      font-weight: 700;
+      padding: 5px 12px;
+      border-radius: 999px;
+      letter-spacing: 0.5px;
+    }
+
+    .pulsing-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background-color: var(--accent-green);
+      animation: pulse 1.8s infinite;
+    }
+
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+      70% { box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+    }
+
+    .time-badge {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      color: var(--text-muted);
+      background: var(--surface-elevated);
+      padding: 5px 12px;
+      border-radius: 6px;
+      border: 1px solid var(--surface-border);
+    }
+
+    /* MODULE VIEWS */
+    .module-view {
+      display: none;
+      padding: 24px 28px;
+      flex-direction: column;
+      gap: 22px;
+      animation: fadeIn 0.25s ease-in-out;
+    }
+
+    .module-view.active-view {
+      display: flex;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* SECTION HEADERS */
+    .view-title-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      border-bottom: 1px solid var(--surface-border);
+      padding-bottom: 14px;
+    }
+
+    .view-title-bar h2 {
+      font-size: 22px;
+      font-weight: 700;
+      color: #FFF;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .view-title-bar p {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    /* ALERTS TICKER / BANNER (Section 14) */
+    .alert-critical-banner {
+      background: linear-gradient(90deg, rgba(239, 68, 68, 0.18) 0%, rgba(239, 68, 68, 0.05) 100%);
+      border: 1px solid var(--accent-red);
+      border-left: 6px solid var(--accent-red);
+      border-radius: var(--radius);
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: 0 4px 20px var(--accent-red-glow);
+    }
+
+    .alert-info-left {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .alert-badge {
+      background: var(--accent-red);
+      color: #FFF;
+      font-size: 11px;
+      font-weight: 800;
+      padding: 4px 10px;
+      border-radius: 4px;
+      letter-spacing: 0.5px;
+    }
+
+    .alert-headline {
+      font-size: 15px;
+      font-weight: 700;
+      color: #FFF;
+    }
+
+    .alert-subtext {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 3px;
+    }
+
+    .alert-actions {
+      display: flex;
+      gap: 10px;
+    }
+
+    .btn {
+      font-family: inherit;
+      cursor: pointer;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 700;
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn-red {
+      background: var(--accent-red);
+      color: #FFF;
+    }
+
+    .btn-red:hover {
+      background: #dc2626;
+      transform: translateY(-1px);
+    }
+
+    .btn-outline {
+      background: transparent;
+      border: 1px solid var(--surface-border);
+      color: var(--text-main);
+    }
+
+    .btn-outline:hover {
+      background: var(--surface-elevated);
+      border-color: var(--text-muted);
+    }
+
+    .btn-green {
+      background: var(--accent-green);
+      color: #000;
+    }
+
+    .btn-green:hover {
+      background: #059669;
+      color: #FFF;
+    }
+
+    /* SUMMARY CARDS GRID */
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+    }
+
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--surface-border);
+      border-radius: var(--radius);
+      padding: 18px;
+      position: relative;
+      cursor: pointer;
+      transition: transform 0.2s, border-color 0.2s;
+    }
+
+    .stat-card:hover {
+      border-color: rgba(255, 255, 255, 0.25);
+      transform: translateY(-2px);
+    }
+
+    .stat-title {
+      font-size: 12px;
+      color: var(--text-muted);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .stat-value {
+      font-size: 36px;
+      font-weight: 800;
+      margin: 8px 0;
+      color: #FFF;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .stat-breakdown {
+      font-size: 11.5px;
+      color: var(--text-muted);
+      display: flex;
+      gap: 10px;
+    }
+
+    .stat-breakdown span {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    /* PANELS & GRIDS */
+    .card-panel {
+      background: var(--surface);
+      border: 1px solid var(--surface-border);
+      border-radius: var(--radius);
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--surface-border);
+      padding-bottom: 12px;
+    }
+
+    .panel-header h3 {
+      font-size: 15px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .grid-2col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+    }
+
+    .grid-3col {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 18px;
+    }
+
+    /* MAPS */
+    .map-controls {
+      display: flex;
+      gap: 6px;
+    }
+
+    .filter-chip {
+      padding: 5px 12px;
+      font-size: 11.5px;
+      border-radius: 999px;
+      border: 1px solid var(--surface-border);
+      background: var(--surface-elevated);
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .filter-chip:hover {
+      color: #FFF;
+      border-color: var(--accent-green);
+    }
+
+    .filter-chip.active {
+      background: var(--accent-green);
+      color: #000;
+      font-weight: 700;
+      border-color: var(--accent-green);
+    }
+
+    #forest-map-full {
+      height: 640px;
+      border-radius: 10px;
+      border: 1px solid var(--surface-border);
+      background: #070B0E;
+      position: relative;
+      transition: all 0.25s ease;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+    }
+
+    #forest-map-full.map-fullscreen {
+      position: fixed !important;
+      top: 0 !important;
+      left: 0 !important;
+      width: 100vw !important;
+      height: 100vh !important;
+      z-index: 99999 !important;
+      border-radius: 0 !important;
+      border: none !important;
+    }
+
+    #forest-map-preview {
+      height: 320px;
+      border-radius: 8px;
+      border: 1px solid var(--surface-border);
+      background: #070B0E;
+    }
+
+    .map-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      font-size: 11.5px;
+      background: var(--surface-elevated);
+      padding: 10px 14px;
+      border-radius: 6px;
+      color: var(--text-muted);
+    }
+
+    /* TABLES */
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      text-align: left;
+    }
+
+    .data-table th {
+      background: var(--surface-elevated);
+      color: var(--text-muted);
+      font-weight: 600;
+      padding: 11px 14px;
+      border-bottom: 1px solid var(--surface-border);
+      font-size: 11.5px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .data-table td {
+      padding: 11px 14px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      color: var(--text-main);
+    }
+
+    .data-table tr:hover {
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 3px 9px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .badge-normal { background: rgba(16, 185, 129, 0.15); color: #34D399; }
+    .badge-warning { background: rgba(245, 158, 11, 0.15); color: #FBBF24; }
+    .badge-high { background: rgba(249, 115, 22, 0.15); color: #FB923C; }
+    .badge-critical { background: rgba(239, 68, 68, 0.2); color: #F87171; }
+
+    /* ROVER CARDS */
+    .rover-card {
+      background: var(--surface-elevated);
+      border: 1px solid var(--surface-border);
+      border-radius: 8px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .rover-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-weight: 700;
+      font-size: 15px;
+    }
+
+    .battery-bar-container {
+      width: 100%;
+      height: 7px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 999px;
+      overflow: hidden;
+      margin: 4px 0;
+    }
+
+    .battery-bar-fill {
+      height: 100%;
+      background: var(--accent-green);
+      border-radius: 999px;
+    }
+
+    /* PREDICTION BOX */
+    .prediction-box {
+      background: linear-gradient(145deg, rgba(239, 68, 68, 0.12), rgba(15, 23, 42, 0.6));
+      border: 1px solid rgba(239, 68, 68, 0.35);
+      border-radius: 8px;
+      padding: 18px;
+    }
+
+    .factor-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin: 12px 0;
+      font-size: 13px;
+    }
+
+    .factor-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #F87171;
+    }
+
+    .recommendation-banner {
+      background: rgba(16, 185, 129, 0.12);
+      border-left: 3px solid var(--accent-green);
+      padding: 12px;
+      border-radius: 4px;
+      font-size: 13px;
+      color: #E5E7EB;
+      margin-top: 12px;
+    }
+
+    /* TIMELINE */
+    .timeline-list {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .timeline-item {
+      display: flex;
+      gap: 14px;
+      font-size: 13px;
+      align-items: flex-start;
+    }
+
+    .timeline-time {
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--text-muted);
+      font-size: 11px;
+      width: 68px;
+      flex-shrink: 0;
+    }
+
+    /* HEALTH NODES */
+    .health-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      font-size: 13px;
+    }
+
+    .health-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 10px 14px;
+      background: var(--surface-elevated);
+      border-radius: 6px;
+    }
+
+    .health-online {
+      color: var(--accent-green);
+      font-weight: 700;
+    }
+
+    /* SETTINGS CONTROLS */
+    .settings-control-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 14px;
+      background: var(--surface-elevated);
+      border-radius: 8px;
+      border: 1px solid var(--surface-border);
+    }
+
+    /* TOAST */
+    #toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: var(--surface-elevated);
+      border: 1px solid var(--accent-green);
+      color: #FFF;
+      padding: 12px 20px;
+      border-radius: 8px;
+      display: none;
+      font-size: 13px;
+      font-weight: 600;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.6);
+      z-index: 999;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 2. NAVIGATION SIDEBAR (Lists all 9 modules to open one by one) -->
+  <aside class="sidebar">
+    <div class="brand-box">
+      <div class="brand-icon">🌲</div>
+      <div>
+        <div class="brand-title">WILDFIRE GUARD</div>
+        <div class="brand-subtitle">Autonomous AI Ops</div>
+      </div>
+    </div>
+
+    <ul class="nav-list" id="navList">
+      <!-- Generated dynamically -->
+    </ul>
+
+    <div class="sidebar-health">
+      <div style="font-weight: 700; color: var(--accent-green);">SYSTEM STATUS: ONLINE</div>
+      <div style="color: var(--text-muted); font-size: 11px; margin-top: 3px;">7 Nodes Active | 100% Operational</div>
+    </div>
+  </aside>
+
+  <!-- MAIN VIEWPORT (Renders selected module one by one) -->
+  <div class="main-wrapper">
+    <!-- 1. HEADER DATA -->
+    <header>
+      <div class="header-left">
+        <h1>🌲 WILDFIRE GUARD</h1>
+        <div class="header-tagline">AI-Powered Forest Fire Prevention & Monitoring</div>
+      </div>
+      <div class="header-right">
+        <div class="status-badge">
+          <div class="pulsing-dot"></div>
+          <span>● SYSTEM ONLINE</span>
+        </div>
+        <div class="time-badge" id="clock">10:42:18 AM</div>
+      </div>
+    </header>
+
+    <!-- ================================================================= -->
+    <!-- VIEW 1: DASHBOARD DATA (Section 3) -->
+    <!-- ================================================================= -->
+    <section class="module-view active-view" id="view-dashboard">
+      <!-- Critical Banner -->
+      <div class="alert-critical-banner">
+        <div class="alert-info-left">
+          <span class="alert-badge">🔴 CRITICAL</span>
+          <div>
+            <div class="alert-headline">Potential Fire Detected — Zone C (Hotspot H-001)</div>
+            <div class="alert-subtext">Temp: <strong>68°C</strong> | Fire Probability: <strong>94%</strong> | Detected By: <strong>Rover R-002</strong> (10:38 AM)</div>
+          </div>
+        </div>
+        <div class="alert-actions">
+          <button class="btn btn-outline" onclick="openModule('Forest Map'); focusZoneC();">VIEW LOCATION</button>
+          <button class="btn btn-red" onclick="dispatchRover('Rover R-001', 'Zone C')">DISPATCH ROVER</button>
+        </div>
+      </div>
+
+      <div class="view-title-bar">
+        <div>
+          <h2>📊 Forest Fire Monitoring Dashboard</h2>
+          <p>Real-time environmental monitoring and autonomous wildfire prevention</p>
+        </div>
+        <button class="btn btn-green" onclick="openModule('Reports')">VIEW FULL REPORT</button>
+      </div>
+
+      <div class="summary-grid">
+        <div class="stat-card" onclick="openModule('Sensor Monitoring')">
+          <div class="stat-title">Active Sensors <span>📡</span></div>
+          <div class="stat-value" style="color: var(--accent-green);">24</div>
+          <div class="stat-breakdown">
+            <span style="color: #34D399;">22 Online</span>
+            <span style="color: #FBBF24;">2 Warning</span>
+            <span style="color: var(--text-muted);">0 Offline</span>
+          </div>
+        </div>
+
+        <div class="stat-card" onclick="openModule('Risk Analysis')">
+          <div class="stat-title">High Risk Areas <span>⚠️</span></div>
+          <div class="stat-value" style="color: var(--accent-red);">05</div>
+          <div class="stat-breakdown">
+            <span style="color: #F87171;">2 Critical</span>
+            <span style="color: #FB923C;">3 High Risk</span>
+          </div>
+        </div>
+
+        <div class="stat-card" onclick="openModule('Rover Monitoring')">
+          <div class="stat-title">Active Rovers <span>🚙</span></div>
+          <div class="stat-value" style="color: var(--accent-cyan);">03</div>
+          <div class="stat-breakdown">
+            <span style="color: #38BDF8;">2 Moving</span>
+            <span style="color: #A78BFA;">1 Investigating</span>
+            <span style="color: var(--text-muted);">0 Charging</span>
+          </div>
+        </div>
+
+        <div class="stat-card" onclick="openModule('Hotspot Detection')">
+          <div class="stat-title">Hotspots <span>🔥</span></div>
+          <div class="stat-value" style="color: #F97316;">04</div>
+          <div class="stat-breakdown">
+            <span style="color: #EF4444;">2 Critical</span>
+            <span style="color: #F59E0B;">2 Under Review</span>
+            <span style="color: var(--text-muted);">0 Resolved</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid-2col">
+        <!-- Quick Map Preview -->
+        <div class="card-panel">
+          <div class="panel-header">
+            <h3>🗺️ Western Forest Zone (250 km²)</h3>
+            <button class="btn btn-outline" style="padding: 4px 10px; font-size: 11px;" onclick="openModule('Forest Map')">EXPAND MAP</button>
+          </div>
+          <div id="forest-map-preview"></div>
+        </div>
+
+        <!-- Quick AI Risk & Recommendation -->
+        <div class="card-panel">
+          <div class="panel-header">
+            <h3>🤖 AI Risk Analysis — Zone C</h3>
+            <span class="badge badge-critical">91% FIRE PROBABILITY</span>
+          </div>
+          <div class="prediction-box">
+            <div style="font-size: 12px; color: var(--text-muted);">Identified Risk Factors:</div>
+            <ul class="factor-list">
+              <li class="factor-item">⚠️ High Temperature (42°C)</li>
+              <li class="factor-item">⚠️ Low Humidity (25%)</li>
+              <li class="factor-item">⚠️ High Smoke Concentration (75 ppm)</li>
+              <li class="factor-item">⚠️ Low Soil Moisture (18%)</li>
+              <li class="factor-item">⚠️ Dense Vegetation</li>
+            </ul>
+            <div class="recommendation-banner">
+              <strong>Recommendation:</strong> Deploy Rover R-001 for immediate investigation.
+            </div>
+            <button class="btn btn-red" style="width: 100%; margin-top: 12px;" onclick="dispatchRover('Rover R-001', 'Zone C')">
+              🚀 DISPATCH ROVER R-001
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================================================================= -->
+    <!-- VIEW 2: FOREST MAP DATA — FULL GEOGRAPHICAL GIS COMMAND -->
+    <!-- ================================================================= -->
+    <section class="module-view" id="view-map">
+      <div class="view-title-bar">
+        <div>
+          <h2>🗺️ Western Forest Zone — Full Geographical GIS Command Center</h2>
+          <p>Total Forest Area: 250 km² | Surveillance: 218 km² (87.2%) | GPS Datum: 11.248° N, 76.942° E | Real-time Satellite Imagery</p>
+        </div>
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <button class="btn btn-outline" id="fullscreenToggleBtn" onclick="toggleMapFullscreen()">⛶ EXPAND FULLSCREEN</button>
+          <button class="btn btn-red" onclick="zoomToSector('Zone C')">🔴 FOCUS CRITICAL ZONE C</button>
+        </div>
+      </div>
+
+      <!-- Quick Geographic Sector Selector & Filters -->
+      <div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center; background: var(--surface); padding: 12px 16px; border-radius: var(--radius); border: 1px solid var(--surface-border);">
+        <span style="font-size: 11.5px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Direct Sector Jump:</span>
+        <button class="btn btn-outline" style="padding: 4px 10px; font-size: 11.5px;" onclick="zoomToSector('ALL')">🌲 Entire 250 km² Reserve</button>
+        <button class="btn btn-outline" style="padding: 4px 10px; font-size: 11.5px; border-color: #10B981; color: #10B981;" onclick="zoomToSector('Zone A')">🟢 Zone A (Low)</button>
+        <button class="btn btn-outline" style="padding: 4px 10px; font-size: 11.5px; border-color: #F59E0B; color: #F59E0B;" onclick="zoomToSector('Zone B')">🟡 Zone B (Moderate)</button>
+        <button class="btn btn-outline" style="padding: 4px 10px; font-size: 11.5px; border-color: #EF4444; color: #EF4444; font-weight: bold;" onclick="zoomToSector('Zone C')">🔴 Zone C (Critical Fire)</button>
+        <button class="btn btn-outline" style="padding: 4px 10px; font-size: 11.5px; border-color: #F97316; color: #F97316;" onclick="zoomToSector('Zone D')">🟠 Zone D (High)</button>
+        <button class="btn btn-outline" style="padding: 4px 10px; font-size: 11.5px; border-color: #10B981; color: #10B981;" onclick="zoomToSector('Zone E')">🟢 Zone E (Low)</button>
+        <div class="map-controls" style="margin-left: auto;">
+          <span class="filter-chip active" onclick="filterMap('All', this)">All Objects</span>
+          <span class="filter-chip" onclick="filterMap('Sensors', this)">📡 Sensors</span>
+          <span class="filter-chip" onclick="filterMap('Risk Areas', this)">🛡️ Risk Areas</span>
+          <span class="filter-chip" onclick="filterMap('Rovers', this)">🚙 Rovers</span>
+          <span class="filter-chip" onclick="filterMap('Hotspots', this)">🔥 Hotspots</span>
+        </div>
+      </div>
+
+      <!-- Main Full GIS Map Display -->
+      <div id="forest-map-full"></div>
+
+      <!-- Geographical Telemetry Ribbon -->
+      <div class="summary-grid" style="grid-template-columns: repeat(5, 1fr);">
+        <div style="background: var(--surface); border: 1px solid var(--surface-border); border-radius: 8px; padding: 12px;">
+          <div style="font-size: 10.5px; color: var(--text-muted); text-transform: uppercase;">Total Forest Area</div>
+          <div style="font-size: 20px; font-weight: 800; color: #FFF; margin-top: 4px;">250 km²</div>
+          <div style="font-size: 11px; color: var(--accent-green); margin-top: 2px;">5 Operational Sectors</div>
+        </div>
+        <div style="background: var(--surface); border: 1px solid var(--surface-border); border-radius: 8px; padding: 12px;">
+          <div style="font-size: 10.5px; color: var(--text-muted); text-transform: uppercase;">Monitored Area</div>
+          <div style="font-size: 20px; font-weight: 800; color: var(--accent-green); margin-top: 4px;">218 km²</div>
+          <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">Coverage: 87.2%</div>
+        </div>
+        <div style="background: var(--surface); border: 1px solid var(--surface-border); border-radius: 8px; padding: 12px;">
+          <div style="font-size: 10.5px; color: var(--text-muted); text-transform: uppercase;">Critical Anomaly</div>
+          <div style="font-size: 20px; font-weight: 800; color: var(--accent-red); margin-top: 4px;">Zone C</div>
+          <div style="font-size: 11px; color: var(--accent-red); margin-top: 2px;">91% Fire Probability</div>
+        </div>
+        <div style="background: var(--surface); border: 1px solid var(--surface-border); border-radius: 8px; padding: 12px;">
+          <div style="font-size: 10.5px; color: var(--text-muted); text-transform: uppercase;">Autonomous Patrol</div>
+          <div style="font-size: 20px; font-weight: 800; color: var(--accent-cyan); margin-top: 4px;">3 Rovers</div>
+          <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">R-001 En Route to Zone C</div>
+        </div>
+        <div style="background: var(--surface); border: 1px solid var(--surface-border); border-radius: 8px; padding: 12px;">
+          <div style="font-size: 10.5px; color: var(--text-muted); text-transform: uppercase;">Sensory Grid</div>
+          <div style="font-size: 20px; font-weight: 800; color: #FFF; margin-top: 4px;">24 Sensors</div>
+          <div style="font-size: 11px; color: var(--accent-green); margin-top: 2px;">22 Online | 2 Warning</div>
+        </div>
+      </div>
+
+      <!-- Full Geographic Zones Data Table -->
+      <div class="card-panel">
+        <div class="panel-header">
+          <h3>🌲 Western Forest Zones Master Geographic Data</h3>
+          <span style="font-size: 11.5px; color: var(--text-muted);">Coordinate Datum: WGS84 | Topographic Elevation: 480m – 1,240m</span>
+        </div>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Zone ID</th>
+              <th>Sector Name</th>
+              <th>Area</th>
+              <th>Center Coordinates</th>
+              <th>Vegetation Canopy</th>
+              <th>Fire Risk Level</th>
+              <th>Sensors & Rovers Deployed</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="mapZoneTableBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ================================================================= -->
+    <!-- VIEW 3: SENSOR MONITORING DATA (Sections 5, 6, 7) -->
+    <!-- ================================================================= -->
+    <section class="module-view" id="view-sensors">
+      <div class="view-title-bar">
+        <div>
+          <h2>📡 Sensor Monitoring</h2>
+          <p>Total Sensors: 24 | Online: 22 | Warning: 2 | Offline: 0</p>
+        </div>
+      </div>
+
+      <div class="grid-2col">
+        <!-- Sensor Table -->
+        <div class="card-panel">
+          <div class="panel-header">
+            <h3>Active Environmental Sensors</h3>
+          </div>
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Sensor ID</th>
+                <th>Zone</th>
+                <th>Temp</th>
+                <th>Humidity</th>
+                <th>Smoke</th>
+                <th>Soil Moisture</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="fullSensorTableBody"></tbody>
+          </table>
+        </div>
+
+        <!-- Sensor Detail: S-003 -->
+        <div class="card-panel">
+          <div class="panel-header">
+            <h3>🔍 Sensor Detail: S-003</h3>
+            <span class="badge badge-critical">CRITICAL</span>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;">
+            <div style="background: var(--surface-elevated); padding: 12px; border-radius: 6px;">
+              <div style="font-size: 11px; color: var(--text-muted);">Location</div>
+              <div style="font-weight: 700; font-size: 13px; margin-top: 2px;">11.276° N, 76.958° E</div>
+            </div>
+            <div style="background: var(--surface-elevated); padding: 12px; border-radius: 6px;">
+              <div style="font-size: 11px; color: var(--text-muted);">Temperature</div>
+              <div style="font-weight: 700; font-size: 18px; color: var(--accent-red); margin-top: 2px;">42°C</div>
+            </div>
+            <div style="background: var(--surface-elevated); padding: 12px; border-radius: 6px;">
+              <div style="font-size: 11px; color: var(--text-muted);">Humidity</div>
+              <div style="font-weight: 700; font-size: 18px; color: var(--accent-amber); margin-top: 2px;">25%</div>
+            </div>
+            <div style="background: var(--surface-elevated); padding: 12px; border-radius: 6px;">
+              <div style="font-size: 11px; color: var(--text-muted);">Smoke Level</div>
+              <div style="font-weight: 700; font-size: 18px; color: var(--accent-red); margin-top: 2px;">75 ppm</div>
+            </div>
+            <div style="background: var(--surface-elevated); padding: 12px; border-radius: 6px;">
+              <div style="font-size: 11px; color: var(--text-muted);">Soil Moisture</div>
+              <div style="font-weight: 700; font-size: 18px; color: var(--accent-amber); margin-top: 2px;">18%</div>
+            </div>
+            <div style="background: var(--surface-elevated); padding: 12px; border-radius: 6px;">
+              <div style="font-size: 11px; color: var(--text-muted);">Battery / Signal</div>
+              <div style="font-weight: 700; font-size: 14px; color: var(--accent-green); margin-top: 2px;">87% (Strong)</div>
+            </div>
+          </div>
+
+          <!-- Section 7 Environmental Dynamics Chart -->
+          <div style="background: var(--surface-elevated); border-radius: 8px; padding: 16px; margin-top: 8px;">
+            <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 10px;">
+              <strong>Temperature Dynamics (8 AM - 11 AM)</strong>
+              <span style="color: var(--text-muted);">Range: 25°C - 45°C</span>
+            </div>
+            <svg viewBox="0 0 400 75" style="width: 100%; height: 75px; overflow: visible;">
+              <defs>
+                <linearGradient id="sensGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="#EF4444" stop-opacity="0.45"/>
+                  <stop offset="100%" stop-color="#EF4444" stop-opacity="0.0"/>
+                </linearGradient>
+              </defs>
+              <path d="M 20,60 L 140,45 L 260,32 L 380,10 L 380,70 L 20,70 Z" fill="url(#sensGrad)"/>
+              <path d="M 20,60 L 140,45 L 260,32 L 380,10" fill="none" stroke="#EF4444" stroke-width="2.5"/>
+              <circle cx="20" cy="60" r="4" fill="#10B981"/>
+              <text x="10" y="73" fill="#9CA3AF" font-size="10">8 AM (25°)</text>
+              <circle cx="140" cy="45" r="4" fill="#F59E0B"/>
+              <text x="130" y="73" fill="#9CA3AF" font-size="10">9 AM (30°)</text>
+              <circle cx="260" cy="32" r="4" fill="#F97316"/>
+              <text x="250" y="73" fill="#9CA3AF" font-size="10">10 AM (35°)</text>
+              <circle cx="380" cy="10" r="5" fill="#EF4444"/>
+              <text x="350" y="24" fill="#EF4444" font-weight="bold" font-size="11">11 AM (42°)</text>
+            </svg>
+            <div style="display: flex; justify-content: space-between; font-size: 11.5px; color: var(--text-muted); margin-top: 14px; border-top: 1px solid var(--surface-border); padding-top: 10px;">
+              <span>Humidity: Avg 41% | Min 25% | Max 68%</span>
+              <span>Smoke: Avg 31 ppm (0-20 Normal, 21-50 Warn, >50 Critical)</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================================================================= -->
+    <!-- VIEW 4: RISK ANALYSIS (Sections 8, 9) -->
+    <!-- ================================================================= -->
+    <section class="module-view" id="view-risk">
+      <div class="view-title-bar">
+        <div>
+          <h2>⚠️ AI Fire Risk Analysis</h2>
+          <p>Overall Forest Risk: 72% (HIGH RISK) | Last Analysis: 10:42 AM</p>
+        </div>
+        <span class="badge badge-critical" style="font-size: 14px; padding: 6px 14px;">OVERALL RISK: 72% HIGH RISK</span>
+      </div>
+
+      <div class="grid-2col">
+        <!-- Risk by Zone Table -->
+        <div class="card-panel">
+          <div class="panel-header">
+            <h3>Zone Risk Evaluation</h3>
+          </div>
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Zone</th>
+                <th>Risk Score</th>
+                <th>Risk Level</th>
+                <th>Temp</th>
+                <th>Humidity</th>
+                <th>Smoke</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td>Zone A</td><td>24%</td><td><span class="badge badge-normal">Low</span></td><td>31°C</td><td>62%</td><td>12 ppm</td></tr>
+              <tr><td>Zone B</td><td>67%</td><td><span class="badge badge-warning">Medium</span></td><td>37°C</td><td>38%</td><td>28 ppm</td></tr>
+              <tr style="background: rgba(239, 68, 68, 0.08);"><td><strong>Zone C</strong></td><td><strong style="color:var(--accent-red);">91%</strong></td><td><span class="badge badge-critical">Critical</span></td><td>42°C</td><td>25%</td><td>75 ppm</td></tr>
+              <tr><td>Zone D</td><td>78%</td><td><span class="badge badge-high">High</span></td><td>35°C</td><td>41%</td><td>34 ppm</td></tr>
+              <tr><td>Zone E</td><td>18%</td><td><span class="badge badge-normal">Low</span></td><td>29°C</td><td>68%</td><td>8 ppm</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- AI Prediction & Recommendation -->
+        <div class="card-panel">
+          <div class="panel-header">
+            <h3>AI Prediction — Target: Zone C</h3>
+            <span class="badge badge-critical">91% FIRE PROBABILITY</span>
+          </div>
+          <div class="prediction-box">
+            <div style="font-size: 12px; font-weight: 600; color: #FFF; text-transform: uppercase;">Identified Risk Factors:</div>
+            <ul class="factor-list">
+              <li class="factor-item">⚠️ High Temperature</li>
+              <li class="factor-item">⚠️ Low Humidity</li>
+              <li class="factor-item">⚠️ High Smoke Concentration</li>
+              <li class="factor-item">⚠️ Low Soil Moisture</li>
+              <li class="factor-item">⚠️ Dense Vegetation</li>
+            </ul>
+            <div class="recommendation-banner">
+              <strong>Autonomous Recommendation:</strong> Deploy Rover R-001 for immediate investigation.
+            </div>
+            <button class="btn btn-red" style="width: 100%; margin-top: 14px;" onclick="dispatchRover('Rover R-001', 'Zone C')">
+              🚀 DISPATCH ROVER R-001 NOW
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================================================================= -->
+    <!-- VIEW 5: ROVER MONITORING (Sections 10, 11) -->
+    <!-- ================================================================= -->
+    <section class="module-view" id="view-rovers">
+      <div class="view-title-bar">
+        <div>
+          <h2>🚙 Rover Fleet Monitoring</h2>
+          <p>Total Rovers: 03 | Active: 03 | Moving: 2 | Investigating: 1 | Charging: 0</p>
+        </div>
+      </div>
+
+      <div class="grid-3col">
+        <!-- Rover R-001 -->
+        <div class="rover-card">
+          <div class="rover-head">
+            <span>Rover R-001</span>
+            <span class="badge" style="background: rgba(56, 189, 248, 0.15); color: #38BDF8;">MOVING 🚙</span>
+          </div>
+          <div style="font-size: 11.5px; color: var(--text-muted);">Battery: 82% | Speed: 4.5 km/h</div>
+          <div class="battery-bar-container"><div class="battery-bar-fill" style="width: 82%;"></div></div>
+          <div style="font-size: 12.5px; margin-top: 6px;">
+            <div><strong>Current Zone:</strong> Zone B → <strong>Target:</strong> Zone C</div>
+            <div style="color: var(--text-muted); margin-top: 2px;">Distance to Target: 2.4 km</div>
+            <div style="color: #E5E7EB; margin-top: 4px;"><strong>Mission:</strong> Investigate Critical Risk Area</div>
+          </div>
+          <button class="btn btn-outline" style="margin-top: 8px;" onclick="openModule('Forest Map'); map.flyTo([11.245, 76.921], 15);">TRACK ON MAP</button>
+        </div>
+
+        <!-- Rover R-002 -->
+        <div class="rover-card">
+          <div class="rover-head">
+            <span>Rover R-002</span>
+            <span class="badge" style="background: rgba(167, 139, 250, 0.15); color: #A78BFA;">INVESTIGATING 🔍</span>
+          </div>
+          <div style="font-size: 11.5px; color: var(--text-muted);">Battery: 64% | Camera & Thermal Active</div>
+          <div class="battery-bar-container"><div class="battery-bar-fill" style="width: 64%; background: #F59E0B;"></div></div>
+          <div style="font-size: 12.5px; margin-top: 6px;">
+            <div><strong>Current Zone:</strong> Zone C</div>
+            <div style="color: var(--text-muted); margin-top: 2px;">Mission: Hotspot Detection</div>
+            <div style="color: #E5E7EB; margin-top: 4px;">Camera: <strong>Active</strong> | Thermal Sensor: <strong>Active</strong></div>
+          </div>
+          <button class="btn btn-outline" style="margin-top: 8px;" onclick="openModule('Forest Map'); map.flyTo([11.276, 76.958], 15);">TRACK ON MAP</button>
+        </div>
+
+        <!-- Rover R-003 -->
+        <div class="rover-card">
+          <div class="rover-head">
+            <span>Rover R-003</span>
+            <span class="badge" style="background: rgba(56, 189, 248, 0.15); color: #38BDF8;">MOVING 🚙</span>
+          </div>
+          <div style="font-size: 11.5px; color: var(--text-muted);">Battery: 91% | Speed: 5.2 km/h</div>
+          <div class="battery-bar-container"><div class="battery-bar-fill" style="width: 91%;"></div></div>
+          <div style="font-size: 12.5px; margin-top: 6px;">
+            <div><strong>Current Zone:</strong> Zone D → Target Hotspot</div>
+            <div style="color: var(--text-muted); margin-top: 2px;">Distance: 1.1 km</div>
+            <div style="color: #E5E7EB; margin-top: 4px;"><strong>Mission:</strong> Perimeter Patrol</div>
+          </div>
+          <button class="btn btn-outline" style="margin-top: 8px;" onclick="openModule('Forest Map'); map.flyTo([11.260, 76.975], 15);">TRACK ON MAP</button>
+        </div>
+      </div>
+
+      <!-- Section 11 Rover Location Telemetry Strip -->
+      <div class="card-panel">
+        <div class="panel-header">
+          <h3>📍 Rover R-001 Real-Time Telemetry & Systems</h3>
+          <span class="badge badge-normal">ALL SYSTEMS GREEN</span>
+        </div>
+        <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 16px;">
+          <div style="background: var(--surface-elevated); padding: 14px; border-radius: 8px;">
+            <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;">Positioning</div>
+            <div style="font-weight: 700; font-size: 14px; margin-top: 4px;">Current: 11.245° N, 76.921° E</div>
+            <div style="font-weight: 700; font-size: 14px; color: var(--accent-red); margin-top: 2px;">Target: 🔴 Zone C (11.276° N, 76.958° E)</div>
+            <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">Distance: 2.4 km | ETA: 32 minutes</div>
+          </div>
+
+          <div style="background: var(--surface-elevated); padding: 14px; border-radius: 8px; display: flex; flex-direction: column; gap: 6px; font-size: 12px;">
+            <div style="color: var(--accent-green);">Navigation — ● Active</div>
+            <div style="color: var(--accent-green);">GPS — ● Connected</div>
+            <div style="color: var(--accent-green);">Camera — ● Active</div>
+          </div>
+
+          <div style="background: var(--surface-elevated); padding: 14px; border-radius: 8px; display: flex; flex-direction: column; gap: 6px; font-size: 12px;">
+            <div style="color: var(--accent-green);">Thermal Sensor — ● Active</div>
+            <div style="color: var(--accent-green);">Communication — ● Connected</div>
+            <div style="color: var(--accent-green);">Battery — 82%</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================================================================= -->
+    <!-- VIEW 6: HOTSPOT DETECTION (Sections 12, 13) -->
+    <!-- ================================================================= -->
+    <section class="module-view" id="view-hotspots">
+      <div class="view-title-bar">
+        <div>
+          <h2>🔥 Hotspot Detection Registry</h2>
+          <p>Total Detected: 04 | Critical: 02 | Warning: 02 | Resolved: 00</p>
+        </div>
+      </div>
+
+      <div class="grid-2col">
+        <!-- Hotspots Table -->
+        <div class="card-panel">
+          <div class="panel-header">
+            <h3>Active Thermal Anomalies</h3>
+          </div>
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Hotspot</th>
+                <th>Zone</th>
+                <th>Temp</th>
+                <th>Smoke</th>
+                <th>Fire Prob.</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr style="background: rgba(239, 68, 68, 0.08);">
+                <td><strong>H-001</strong></td><td>Zone C</td><td style="color:var(--accent-red); font-weight:700;">68°C</td><td>82 ppm</td><td><strong>94%</strong></td><td><span class="badge badge-critical">🔴 Critical</span></td>
+              </tr>
+              <tr style="background: rgba(239, 68, 68, 0.05);">
+                <td><strong>H-002</strong></td><td>Zone C</td><td style="color:var(--accent-red); font-weight:700;">61°C</td><td>71 ppm</td><td><strong>88%</strong></td><td><span class="badge badge-critical">🔴 Critical</span></td>
+              </tr>
+              <tr>
+                <td><strong>H-003</strong></td><td>Zone D</td><td style="color:var(--accent-orange); font-weight:700;">51°C</td><td>45 ppm</td><td><strong>72%</strong></td><td><span class="badge badge-warning">🟠 Warning</span></td>
+              </tr>
+              <tr>
+                <td><strong>H-004</strong></td><td>Zone B</td><td style="color:var(--accent-amber); font-weight:700;">47°C</td><td>38 ppm</td><td><strong>61%</strong></td><td><span class="badge badge-warning">🟡 Monitoring</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Hotspot Detail: H-001 -->
+        <div class="card-panel">
+          <div class="panel-header">
+            <h3>🚨 Hotspot Detail: H-001</h3>
+            <span class="badge badge-critical">CRITICAL EMERGENCY</span>
+          </div>
+
+          <div style="font-size: 13px; display: flex; flex-direction: column; gap: 8px;">
+            <div><strong>Location:</strong> 11.276° N, 76.958° E | <strong>Detected By:</strong> Rover R-002</div>
+            <div><strong>Detection Time:</strong> 10:38:24 AM | <strong>Temperature:</strong> 68°C</div>
+            <div><strong>Smoke Level:</strong> 82 ppm | <strong>Fire Probability:</strong> <span style="color:var(--accent-red); font-weight:bold;">94%</span></div>
+            <div><strong>Vegetation Density:</strong> High | <strong>Wind Speed:</strong> 18 km/h</div>
+          </div>
+
+          <div style="background: var(--surface-elevated); padding: 14px; border-radius: 8px; margin-top: 6px;">
+            <div style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;">Action Status Checklist</div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 12.5px;">
+              <span style="color: var(--accent-green);">✓ Hotspot Detected</span>
+              <span style="color: var(--accent-green);">✓ Rover Confirmed</span>
+              <span style="color: var(--accent-green);">✓ Location Recorded</span>
+              <span style="color: var(--accent-green);">✓ Alert Generated</span>
+            </div>
+            <div style="margin-top: 10px; font-weight: bold; color: var(--accent-red);">Current Action: Emergency Response Required</div>
+          </div>
+
+          <button class="btn btn-red" onclick="openModule('Forest Map'); focusZoneC();">LOCATE ON FOREST MAP</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================================================================= -->
+    <!-- VIEW 7: ALERTS (Sections 14, 15) -->
+    <!-- ================================================================= -->
+    <section class="module-view" id="view-alerts">
+      <div class="view-title-bar">
+        <div>
+          <h2>🚨 Wildfire Incident & Threat Alerts</h2>
+          <p>Real-time autonomous notifications and sensor anomaly warnings</p>
+        </div>
+      </div>
+
+      <div class="grid-2col">
+        <!-- Critical & Warning Alert Cards -->
+        <div style="display: flex; flex-direction: column; gap: 16px;">
+          <!-- Critical Alert -->
+          <div style="background: rgba(239, 68, 68, 0.12); border: 1px solid var(--accent-red); border-radius: 8px; padding: 18px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <span class="badge badge-critical" style="font-size: 12px;">🔴 CRITICAL</span>
+              <span style="font-family:'JetBrains Mono'; font-size:12px; color:var(--text-muted);">10:38 AM</span>
+            </div>
+            <div style="font-size: 17px; font-weight: 700; color: #FFF; margin: 8px 0;">Potential Fire Detected — Zone C</div>
+            <div style="font-size: 13px; color: var(--text-muted); line-height: 1.6;">
+              Hotspot: <strong>H-001</strong> | Temperature: <strong>68°C</strong> | Fire Probability: <strong>94%</strong><br/>
+              Detected By: <strong>Rover R-002</strong>
+            </div>
+            <div style="display: flex; gap: 10px; margin-top: 14px;">
+              <button class="btn btn-outline" onclick="openModule('Forest Map'); focusZoneC();">VIEW LOCATION</button>
+              <button class="btn btn-red" onclick="dispatchRover('Rover R-001', 'Zone C')">DISPATCH ROVER</button>
+            </div>
+          </div>
+
+          <!-- Warning Alert -->
+          <div style="background: rgba(249, 115, 22, 0.12); border: 1px solid var(--accent-orange); border-radius: 8px; padding: 18px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <span class="badge badge-high" style="font-size: 12px;">🟠 WARNING</span>
+              <span style="font-family:'JetBrains Mono'; font-size:12px; color:var(--text-muted);">10:35 AM</span>
+            </div>
+            <div style="font-size: 17px; font-weight: 700; color: #FFF; margin: 8px 0;">High Temperature Detected — Zone D</div>
+            <div style="font-size: 13px; color: var(--text-muted); line-height: 1.6;">
+              Location: <strong>Zone D</strong> | Temperature: <strong>51°C</strong> | Fire Probability: <strong>72%</strong>
+            </div>
+            <div style="display: flex; gap: 10px; margin-top: 14px;">
+              <button class="btn btn-outline" onclick="openModule('Forest Map'); map.flyTo([11.260, 76.975], 15);">VIEW LOCATION</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- System Activity Feed -->
+        <div class="card-panel">
+          <div class="panel-header">
+            <h3>⏱️ System Activity Feed</h3>
+          </div>
+          <div class="timeline-list">
+            <div class="timeline-item"><span class="timeline-time">10:42 AM</span><span>✓</span><span>Risk analysis completed</span></div>
+            <div class="timeline-item"><span class="timeline-time">10:41 AM</span><span>📡</span><span>Sensor S-003 reported high smoke level</span></div>
+            <div class="timeline-item"><span class="timeline-time">10:40 AM</span><span>🚙</span><span>Rover R-002 reached Zone C</span></div>
+            <div class="timeline-item"><span class="timeline-time">10:39 AM</span><span>🔥</span><span>Thermal hotspot detected</span></div>
+            <div class="timeline-item"><span class="timeline-time">10:38 AM</span><span>🚨</span><span>Critical fire alert generated</span></div>
+    <!-- ================================================================= -->
+    <!-- VIEW 8: WILDFIRE HISTORY & PDF EXPORT (Section 7, 8, 9, 13) -->
+    <!-- ================================================================= -->
+    <section class="module-view" id="view-history">
+      <div class="view-title-bar">
+        <div>
+          <h2>📜 Historical Wildfire Surveillance & PDF Export</h2>
+          <p>Complete historical database query with direct PDF report download</p>
+        </div>
+        <button class="btn btn-red" style="font-size: 13px; padding: 10px 20px;" onclick="downloadHistoryPDF()">
+          📥 DOWNLOAD PDF REPORT
+        </button>
+      </div>
+
+      <!-- Historical Filter Bar (Section 7) -->
+      <div class="card-panel" style="gap: 12px;">
+        <div class="panel-header">
+          <h3>🔍 Historical Database Filter</h3>
+          <span style="font-size: 11px; color: var(--text-muted);">Database: Connected | GPS-Tagged Historical Telemetry</span>
+        </div>
+        <div style="display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-end;">
+          <div>
+            <label style="font-size: 11px; color: var(--text-muted); display: block; margin-bottom: 4px;">Date From:</label>
+            <input type="date" id="histDateFrom" value="2026-09-03" style="background: var(--surface-elevated); border: 1px solid var(--surface-border); color: #FFF; padding: 7px 12px; border-radius: 6px; font-family: inherit; font-size: 12px;">
+          </div>
+          <div>
+            <label style="font-size: 11px; color: var(--text-muted); display: block; margin-bottom: 4px;">Date To:</label>
+            <input type="date" id="histDateTo" value="2026-09-03" style="background: var(--surface-elevated); border: 1px solid var(--surface-border); color: #FFF; padding: 7px 12px; border-radius: 6px; font-family: inherit; font-size: 12px;">
+          </div>
+          <div>
+            <label style="font-size: 11px; color: var(--text-muted); display: block; margin-bottom: 4px;">Type:</label>
+            <select id="histType" style="background: var(--surface-elevated); border: 1px solid var(--surface-border); color: #FFF; padding: 7px 12px; border-radius: 6px; font-family: inherit; font-size: 12px;">
+              <option value="All">All Types ▼</option>
+              <option value="Sensor">Sensor Readings</option>
+              <option value="Rover">Rover Tracking</option>
+              <option value="Hotspot">Hotspot Anomalies</option>
+              <option value="Alert">Alerts</option>
+              <option value="AI Risk">AI Risk Model</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size: 11px; color: var(--text-muted); display: block; margin-bottom: 4px;">Zone:</label>
+            <select id="histZone" style="background: var(--surface-elevated); border: 1px solid var(--surface-border); color: #FFF; padding: 7px 12px; border-radius: 6px; font-family: inherit; font-size: 12px;">
+              <option value="All">All Zones ▼</option>
+              <option value="Zone A">Zone A</option>
+              <option value="Zone B">Zone B</option>
+              <option value="Zone C" selected>Zone C (Critical Sector)</option>
+              <option value="Zone D">Zone D</option>
+              <option value="Zone E">Zone E</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size: 11px; color: var(--text-muted); display: block; margin-bottom: 4px;">Severity:</label>
+            <select id="histSeverity" style="background: var(--surface-elevated); border: 1px solid var(--surface-border); color: #FFF; padding: 7px 12px; border-radius: 6px; font-family: inherit; font-size: 12px;">
+              <option value="All">All Severities ▼</option>
+              <option value="Critical">Critical</option>
+              <option value="High">High</option>
+              <option value="Warning">Warning</option>
+              <option value="Active">Active / Online</option>
+            </select>
+          </div>
+          <button class="btn btn-green" onclick="filterHistoryTable()">🔍 SEARCH</button>
+          <button class="btn btn-red" onclick="downloadHistoryPDF()">📥 DOWNLOAD PDF</button>
+        </div>
+      </div>
+
+      <!-- Unified Historical Records Table (Section 7) -->
+      <div class="card-panel">
+        <div class="panel-header">
+          <h3>Historical Records Chronology</h3>
+          <span style="font-size: 11.5px; color: var(--text-muted);">Timestamp & Precise GPS Location Preserved</span>
+        </div>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Timestamp</th>
+              <th>Type</th>
+              <th>Zone / Sector</th>
+              <th>GPS Coordinates</th>
+              <th>Recorded Value / Telemetry</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="historyTableBody">
+            <!-- Dynamically Populated -->
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Report Download History (Section 13) -->
+      <div class="card-panel">
+        <div class="panel-header">
+          <h3>📑 Report Download History</h3>
+          <span style="font-size: 11.5px; color: var(--text-muted);">Archived PDF Reports Ready for Re-download</span>
+        </div>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Report Name</th>
+              <th>Date Range</th>
+              <th>Target Sector</th>
+              <th>Generated At</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="reportsHistoryBody">
+            <!-- Dynamically Populated -->
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ================================================================= -->
+    <!-- VIEW 9: REPORTS (Section 16) -->
+    <!-- ================================================================= -->
+    <section class="module-view" id="view-reports">
+      <div class="view-title-bar">
+        <div>
+          <h2>📑 Forest Statistics & Reports</h2>
+          <p>Comprehensive environmental audit and coverage telemetry</p>
+        </div>
+        <button class="btn btn-outline" onclick="showToast('Exporting Forest Audit Report (PDF)...')">📥 EXPORT REPORT</button>
+      </div>
+
+      <div class="grid-2col">
+        <div class="card-panel">
+          <div class="panel-header">
+            <h3>Forest Telemetry Statistics</h3>
+          </div>
+          <table class="data-table">
+            <thead><tr><th>Data Metric</th><th>Recorded Value</th></tr></thead>
+            <tbody>
+              <tr><td>Total Forest Area</td><td><strong>250 km²</strong></td></tr>
+              <tr><td>Monitored Area</td><td><strong>218 km²</strong></td></tr>
+              <tr><td>Coverage Percentage</td><td><strong style="color:var(--accent-green);">87.2%</strong></td></tr>
+              <tr><td>Total Sensors Installed</td><td><strong>24</strong></td></tr>
+              <tr><td>Active Autonomous Rovers</td><td><strong>3</strong></td></tr>
+              <tr><td>Total Risk Zones</td><td><strong>12</strong></td></tr>
+              <tr><td>Critical Zones Under Surveillance</td><td><strong style="color:var(--accent-red);">2</strong></td></tr>
+              <tr><td>Detected Hotspots</td><td><strong>4</strong></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="card-panel">
+          <div class="panel-header">
+            <h3>Environmental Baseline Summary</h3>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 12px; font-size: 13px;">
+            <div style="background: var(--surface-elevated); padding: 12px; border-radius: 6px;">
+              <div style="font-size: 11px; color: var(--text-muted);">HUMIDITY AUDIT</div>
+              <div style="font-weight: 700; font-size: 15px; margin-top: 2px;">Average: 41% | Min: 25% | Max: 68%</div>
+            </div>
+            <div style="background: var(--surface-elevated); padding: 12px; border-radius: 6px;">
+              <div style="font-size: 11px; color: var(--text-muted);">SMOKE CONCENTRATION AUDIT</div>
+              <div style="font-weight: 700; font-size: 15px; margin-top: 2px;">Average Smoke: 31 ppm</div>
+              <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">
+                0–20 ppm: 🟢 Normal | 21–50 ppm: 🟡 Warning | >50 ppm: 🔴 Critical
+              </div>
+            </div>
+            <div style="background: var(--surface-elevated); padding: 12px; border-radius: 6px;">
+              <div style="font-size: 11px; color: var(--text-muted);">PATROL MOBILITY</div>
+              <div style="font-weight: 700; font-size: 15px; margin-top: 2px;">3 Rovers Deployed (82%, 64%, 91% Battery)</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================================================================= -->
+    <!-- VIEW 9: SETTINGS & SYSTEM HEALTH (Section 17) -->
+    <!-- ================================================================= -->
+    <section class="module-view" id="view-settings">
+      <div class="view-title-bar">
+        <div>
+          <h2>⚙️ System Settings & Health Diagnostics</h2>
+          <p>Subsystem configuration and network diagnostics</p>
+        </div>
+        <span class="badge badge-normal" style="font-size: 13px; padding: 6px 12px;">● OPERATIONAL</span>
+      </div>
+
+      <div class="grid-2col">
+        <!-- Subsystem Health Nodes (Section 17) -->
+        <div class="card-panel">
+          <div class="panel-header">
+            <h3>Component Health Monitor</h3>
+            <div style="font-size: 11.5px; color: var(--accent-green); font-weight: bold;">ALL NODES ONLINE</div>
+          </div>
+          <div class="health-grid">
+            <div class="health-row"><span>IoT Sensors</span><span class="health-online">● ONLINE</span></div>
+            <div class="health-row"><span>AI Prediction</span><span class="health-online">● ONLINE</span></div>
+            <div class="health-row"><span>Rover Network</span><span class="health-online">● ONLINE</span></div>
+            <div class="health-row"><span>GPS Tracking</span><span class="health-online">● ONLINE</span></div>
+            <div class="health-row"><span>Thermal Detection</span><span class="health-online">● ONLINE</span></div>
+            <div class="health-row"><span>Communication</span><span class="health-online">● ONLINE</span></div>
+            <div class="health-row"><span>Database</span><span class="health-online">● ONLINE</span></div>
+          </div>
+        </div>
+
+        <!-- Controls -->
+        <div class="card-panel">
+          <div class="panel-header">
+            <h3>Autonomous Thresholds</h3>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 10px;">
+            <div class="settings-control-row">
+              <div>
+                <div style="font-weight: 600; font-size: 13px;">Auto-Deploy Rover on Critical Alert</div>
+                <div style="font-size: 11.5px; color: var(--text-muted);">Dispatches closest rover within 60 seconds</div>
+              </div>
+              <span class="badge badge-normal">ENABLED</span>
+            </div>
+            <div class="settings-control-row">
+              <div>
+                <div style="font-weight: 600; font-size: 13px;">Critical Temperature Threshold</div>
+                <div style="font-size: 11.5px; color: var(--text-muted);">Triggers immediate red status</div>
+              </div>
+              <span style="font-family:'JetBrains Mono'; font-weight: bold; color: var(--accent-red);">≥ 40°C</span>
+            </div>
+            <div class="settings-control-row">
+              <div>
+                <div style="font-weight: 600; font-size: 13px;">Critical Smoke Threshold</div>
+                <div style="font-size: 11.5px; color: var(--text-muted);">Triggers autonomous aerial/ground survey</div>
+              </div>
+              <span style="font-family:'JetBrains Mono'; font-weight: bold; color: var(--accent-red);">> 50 ppm</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <div id="toast"></div>
+
+  <!-- APPLICATION LOGIC & ROUTING -->
+  <script>
+    // =========================================================================
+    // 🌐 BACKEND REST API INTEGRATION LAYER
+    // Connects: Frontend ⇄ REST API (FastAPI / Python) ⇄ Database (SQLite)
+    // =========================================================================
+    const API_BASE = window.location.origin.startsWith('http') ? window.location.origin : 'http://localhost:8000';
+
+    let isBackendLive = false;
+
+    async function fetchAPI(endpoint) {
+      try {
+        const res = await fetch(`${API_BASE}${endpoint}`);
+        if (res.ok) {
+          isBackendLive = true;
+          updateLiveIndicator(true);
+          return await res.json();
+        }
+      } catch (err) {
+        // Fallback for file:// standalone mode
+        isBackendLive = false;
+        updateLiveIndicator(false);
+      }
+      return null;
+    }
+
+    function updateLiveIndicator(live) {
+      const badge = document.querySelector('.status-badge span');
+      if (badge) {
+        badge.innerHTML = live ? "● REST API CONNECTED" : "● SYSTEM ONLINE (CACHE)";
+      }
+    }
+
+    // Dynamic Data Stores
+    let ZONES_DATA = [
+      { zone: "Zone A", risk: "Low Risk", lat: 11.230, lng: 76.910, color: "#10B981" },
+      { zone: "Zone B", risk: "Moderate Risk", lat: 11.245, lng: 76.930, color: "#F59E0B" },
+      { zone: "Zone C", risk: "Critical Risk", lat: 11.276, lng: 76.958, color: "#EF4444" },
+      { zone: "Zone D", risk: "High Risk", lat: 11.260, lng: 76.975, color: "#F97316" },
+      { zone: "Zone E", risk: "Low Risk", lat: 11.215, lng: 76.945, color: "#10B981" }
+    ];
+
+    let SENSORS_DATA = [
+      { id: "S-001", zone: "Zone A", temp: "31°C", humidity: "62%", smoke: "12 ppm", moisture: "48%", status: "🟢 Normal", statusType: "normal" },
+      { id: "S-002", zone: "Zone B", temp: "37°C", humidity: "38%", smoke: "28 ppm", moisture: "31%", status: "🟡 Warning", statusType: "warning" },
+      { id: "S-003", zone: "Zone C", temp: "42°C", humidity: "25%", smoke: "75 ppm", moisture: "18%", status: "🔴 Critical", statusType: "critical" },
+      { id: "S-004", zone: "Zone D", temp: "35°C", humidity: "41%", smoke: "34 ppm", moisture: "29%", status: "🟠 High", statusType: "high" },
+      { id: "S-005", zone: "Zone E", temp: "29°C", humidity: "68%", smoke: "8 ppm", moisture: "55%", status: "🟢 Normal", statusType: "normal" }
+    ];
+
+    const NAV_ITEMS = [
+      { id: "view-dashboard", label: "Dashboard", icon: "📊" },
+      { id: "view-map", label: "Forest Map", icon: "🗺️" },
+      { id: "view-sensors", label: "Sensor Monitoring", icon: "📡" },
+      { id: "view-risk", label: "Risk Analysis", icon: "⚠️" },
+      { id: "view-rovers", label: "Rover Monitoring", icon: "🚙" },
+      { id: "view-hotspots", label: "Hotspot Detection", icon: "🔥" },
+      { id: "view-alerts", label: "Alerts", icon: "🚨" },
+      { id: "view-history", label: "History", icon: "📜" },
+      { id: "view-reports", label: "Reports", icon: "📑" },
+      { id: "view-settings", label: "Settings", icon: "⚙️" }
+    ];
+
+    // Build Navigation & Click Event for Opening Views One by One
+    const navList = document.getElementById('navList');
+    NAV_ITEMS.forEach((item, index) => {
+      const li = document.createElement('li');
+      li.className = 'nav-item' + (index === 0 ? ' active' : '');
+      li.innerHTML = `<span>${item.icon}</span><span>${item.label}</span>`;
+      li.onclick = () => openModule(item.label);
+      navList.appendChild(li);
+    });
+
+    function openModule(label) {
+      const item = NAV_ITEMS.find(n => n.label === label);
+      if (!item) return;
+
+      document.querySelectorAll('.nav-item').forEach(el => {
+        if (el.innerText.includes(label)) {
+          el.classList.add('active');
+        } else {
+          el.classList.remove('active');
+        }
+      });
+
+      document.querySelectorAll('.module-view').forEach(view => {
+        view.classList.remove('active-view');
+      });
+      const activeView = document.getElementById(item.id);
+      if (activeView) {
+        activeView.classList.add('active-view');
+      }
+
+      if (item.id === 'view-map' && fullMap) {
+        setTimeout(() => fullMap.invalidateSize(), 150);
+      }
+      if (item.id === 'view-dashboard' && previewMap) {
+        setTimeout(() => previewMap.invalidateSize(), 150);
+      }
+      if (item.id === 'view-history') {
+        renderHistoryTable();
+        renderReportsHistory();
+      }
+
+      showToast(`Opened Module: ${label}`);
+    }
+
+    // =========================================================================
+    // 📜 HISTORICAL SURVEILLANCE & PDF DOWNLOAD ENGINE
+    // =========================================================================
+    const HISTORICAL_RECORDS = [
+      { time: "10:41 AM", type: "Sensor", zone: "Zone C", loc: "11.276° N, 76.958° E", val: "S-003: 42°C, 75 ppm smoke, 18% moist", status: "Critical", badge: "critical" },
+      { time: "10:40 AM", type: "Rover", zone: "Zone C", loc: "11.270° N, 76.950° E", val: "Rover R-002 (3.2 km/h, 65% batt)", status: "Active", badge: "normal" },
+      { time: "10:39 AM", type: "Hotspot", zone: "Zone C", loc: "11.276° N, 76.958° E", val: "Hotspot H-001: 68°C (94% fire prob)", status: "Critical", badge: "critical" },
+      { time: "10:38 AM", type: "Alert", zone: "Zone C", loc: "11.276° N, 76.958° E", val: "Potential Fire Detected by R-002", status: "Critical", badge: "critical" },
+      { time: "10:36 AM", type: "AI Risk", zone: "Zone C", loc: "11.276° N, 76.958° E", val: "AI Model: 91% Fire Probability", status: "Critical", badge: "critical" },
+      { time: "10:00 AM", type: "Sensor", zone: "Zone C", loc: "11.276° N, 76.958° E", val: "S-003: 40°C, 51 ppm smoke, 21% moist", status: "Critical", badge: "critical" },
+      { time: "09:00 AM", type: "Sensor", zone: "Zone C", loc: "11.276° N, 76.958° E", val: "S-003: 35°C, 29 ppm smoke, 25% moist", status: "Warning", badge: "warning" },
+      { time: "08:00 AM", type: "Sensor", zone: "Zone C", loc: "11.276° N, 76.958° E", val: "S-003: 31°C, 18 ppm smoke, 29% moist", status: "Normal", badge: "normal" }
+    ];
+
+    const REPORTS_ARCHIVE = [
+      { name: "Daily Forest Monitoring Report", dates: "03-09-2026", zone: "Western Forest Zone (All)", gen: "03-09-2026 11:00 AM", file: "Wildfire_Daily_Report_2026-09-03.pdf" },
+      { name: "Zone C Risk & Thermal Analysis", dates: "03-09-2026", zone: "Zone C (Critical)", gen: "03-09-2026 10:50 AM", file: "Wildfire_Zone_C_Risk_2026-09-03.pdf" },
+      { name: "Historical Sensor Audit (S-001 - S-005)", dates: "02-09-2026", zone: "All Zones (A-E)", gen: "02-09-2026 06:00 PM", file: "Wildfire_Sensor_History_2026-09-02.pdf" },
+      { name: "Autonomous Rover Fleet Movement", dates: "02-09-2026", zone: "Zone C / Zone D", gen: "02-09-2026 04:30 PM", file: "Wildfire_Rover_Movement_2026-09-02.pdf" },
+      { name: "Hotspot Detection & Verification Audit", dates: "01-09-2026", zone: "Western Forest Zone", gen: "01-09-2026 12:00 PM", file: "Wildfire_Hotspot_Audit_2026-09-01.pdf" }
+    ];
+
+    function renderHistoryTable(records = HISTORICAL_RECORDS) {
+      const tbody = document.getElementById('historyTableBody');
+      if (!tbody) return;
+      tbody.innerHTML = '';
+      records.forEach(r => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td style="font-family:'JetBrains Mono'; font-size:12px; color:#FFF;">${r.time || r.timestamp}</td>
+          <td><span class="badge" style="background:rgba(255,255,255,0.08);">${r.type}</span></td>
+          <td style="font-weight:600;">${r.zone}</td>
+          <td style="font-family:'JetBrains Mono'; font-size:11.5px; color:var(--text-muted);">${r.loc || r.location}</td>
+          <td>${r.val || r.value}</td>
+          <td><span class="badge badge-${r.badge || (r.status.toLowerCase().includes('crit') ? 'critical' : (r.status.toLowerCase().includes('warn') ? 'warning' : 'normal'))}">${r.status}</span></td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function renderReportsHistory() {
+      const tbody = document.getElementById('reportsHistoryBody');
+      if (!tbody) return;
+      tbody.innerHTML = '';
+      REPORTS_ARCHIVE.forEach(rep => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td style="font-weight:700; color:#FFF;">${rep.name}</td>
+          <td style="font-family:'JetBrains Mono'; font-size:11.5px;">${rep.dates}</td>
+          <td><span class="badge badge-normal">${rep.zone}</span></td>
+          <td style="font-size:11.5px; color:var(--text-muted);">${rep.gen}</td>
+          <td>
+            <button class="btn btn-outline" style="padding:4px 10px; font-size:11px;" onclick="downloadArchivedReport('${rep.name}', '${rep.file}')">
+              📥 DOWNLOAD PDF
+            </button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function filterHistoryTable() {
+      const typeFilter = document.getElementById('histType').value;
+      const zoneFilter = document.getElementById('histZone').value;
+      const sevFilter = document.getElementById('histSeverity').value;
+
+      let filtered = HISTORICAL_RECORDS.filter(r => {
+        const matchType = (typeFilter === 'All' || r.type.toLowerCase().includes(typeFilter.toLowerCase()));
+        const matchZone = (zoneFilter === 'All' || r.zone.includes(zoneFilter));
+        const matchSev = (sevFilter === 'All' || r.status.toLowerCase().includes(sevFilter.toLowerCase()));
+        return matchType && matchZone && matchSev;
+      });
+
+      renderHistoryTable(filtered);
+      showToast(`Filter applied: ${filtered.length} records found`);
+    }
+
+    // 📥 PDF Generator (Direct Laptop Download)
+    async function downloadHistoryPDF() {
+      const from = document.getElementById('histDateFrom').value || '2026-09-03';
+      const to = document.getElementById('histDateTo').value || '2026-09-03';
+      const zone = document.getElementById('histZone').value || 'Zone C';
+
+      showToast('Generating Historical PDF Report...');
+
+      if (isBackendLive) {
+        window.location.href = `${API_BASE}/api/history/pdf?from=${from}&to=${to}&zone=${zone}`;
+        showToast('✓ PDF downloaded directly to your laptop!');
+        return;
+      }
+
+      // Standalone Direct PDF Generator
+      generateClientSidePDF(from, to, zone, "Wildfire_History_" + from + ".pdf");
+    }
+
+    function downloadArchivedReport(name, fileName) {
+      showToast(`Downloading: ${name}...`);
+      generateClientSidePDF("2026-09-01", "2026-09-03", "Western Forest Zone", fileName);
+    }
+
+    function generateClientSidePDF(from, to, zone, filename) {
+      const lines = [
+        "WILDFIRE GUARD -- HISTORICAL MONITORING REPORT",
+        "AI-Powered Forest Fire Prevention & Monitoring",
+        "=========================================================================",
+        `Report Period: ${from} to ${to} | Target Sector: ${zone}`,
+        `Generated: ${new Date().toLocaleString()} | Monitored Area: 218 km2 (Coverage: 87.2%)`,
+        "Location Coordinates: Zone C (11.276 N, 76.958 E) | Status: CRITICAL",
+        "=========================================================================",
+        "",
+        "1. SENSOR TELEMETRY HISTORY (S-003 Chronology):",
+        "Time     Sensor   Zone     Temp    Humidity   Smoke     Soil Moist   Status",
+        "08:00    S-003    Zone C   31 C    52%        18 ppm    29%          Normal",
+        "09:00    S-003    Zone C   35 C    43%        29 ppm    25%          Warning",
+        "10:00    S-003    Zone C   40 C    34%        51 ppm    21%          Critical",
+        "10:41    S-003    Zone C   42 C    25%        75 ppm    18%          Critical",
+        "",
+        "2. AI FIRE RISK MODEL EVALUATION:",
+        "Time     Zone     Risk Score   Probability   Risk Level",
+        "10:36    Zone C   78%          78%           High",
+        "10:40    Zone C   86%          86%           High",
+        "10:42    Zone C   91%          91%           Critical (Recommendation: Deploy R-001)",
+        "",
+        "3. ROVER GPS MOVEMENT HISTORY (R-002 Telemetry):",
+        "Time     Rover    Latitude    Longitude   Speed      Battery   Status",
+        "10:40    R-002    11.270 N    76.950 E    3.2 km/h   65%       Moving",
+        "10:41    R-002    11.274 N    76.955 E    2.1 km/h   64%       Investigating",
+        "10:42    R-002    11.276 N    76.958 E    0.0 km/h   64%       Investigating",
+        "",
+        "4. HOTSPOT & CRITICAL ALERT CHRONOLOGY:",
+        "10:39    Hotspot H-001: 68 C | Smoke: 82 ppm | Prob: 94% | Status: Critical",
+        "10:38    Alert A-001: Potential Fire Detected in Zone C | Action: Emergency Required",
+        "",
+        "=========================================================================",
+        "End of Historical Audit Report | Wildfire Guard Autonomous System"
+      ];
+
+      let textStream = "BT /F1 9 Tf 40 760 Td 13 TL\n";
+      lines.forEach(l => {
+        const esc = l.replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)");
+        textStream += `(${esc}) '\n`;
+      });
+      textStream += "ET";
+
+      const streamLen = textStream.length;
+      const obj1 = "1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n";
+      const obj2 = "2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n";
+      const obj3 = "3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 << /Type /Font /Subtype /Type1 /BaseFont /Courier >> >> >> >>\nendobj\n";
+      const obj4 = `4 0 obj\n<< /Length ${streamLen} >>\nstream\n${textStream}\nendstream\nendobj\n`;
+
+      const header = "%PDF-1.4\n";
+      const o1 = header.length;
+      const o2 = o1 + obj1.length;
+      const o3 = o2 + obj2.length;
+      const o4 = o3 + obj3.length;
+      const xrefOffset = o4 + obj4.length;
+
+      const xref = `xref\n0 5\n0000000000 65535 f \n${String(o1).padStart(10, '0')} 00000 n \n${String(o2).padStart(10, '0')} 00000 n \n${String(o3).padStart(10, '0')} 00000 n \n${String(o4).padStart(10, '0')} 00000 n \n`;
+      const trailer = `trailer\n<< /Size 5 /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
+
+      const pdfString = header + obj1 + obj2 + obj3 + obj4 + xref + trailer;
+      const blob = new Blob([pdfString], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename || `Wildfire_History_${from}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToast(`✓ PDF '${filename || 'Report'}' downloaded directly to your laptop!`);
+    }
+
+    // Render Sensors Table
+    function renderSensorsTable(data) {
+      const sensorBody = document.getElementById('fullSensorTableBody');
+      if (!sensorBody) return;
+      sensorBody.innerHTML = '';
+      data.forEach(s => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td style="font-weight: 700; color: #FFF;">${s.id || s.sensor_id}</td>
+          <td>${s.zone || s.zone_name}</td>
+          <td>${s.temp || s.temperature_c + '°C'}</td>
+          <td>${s.humidity || s.humidity_percent + '%'}</td>
+          <td>${s.smoke || s.smoke_ppm + ' ppm'}</td>
+          <td>${s.moisture || s.soil_moisture_percent + '%'}</td>
+          <td><span class="badge badge-${(s.status || '').toLowerCase().includes('crit') ? 'critical' : ((s.status || '').toLowerCase().includes('warn') ? 'warning' : 'normal')}">${s.status}</span></td>
+        `;
+        sensorBody.appendChild(tr);
+      });
+    }
+
+    // Extended Master Geographical Zones Data
+    const ZONES_EXTENDED = [
+      { id: "Z001", zone: "Zone A", area: "50 km²", lat: 11.230, lng: 76.910, veg: "Medium Deciduous", risk: "Low Risk", color: "#10B981", deployed: "📡 Sensor S-001 (Normal)" },
+      { id: "Z002", zone: "Zone B", area: "50 km²", lat: 11.245, lng: 76.930, veg: "High Dense Canopy", risk: "Moderate Risk", color: "#F59E0B", deployed: "📡 Sensor S-002 | 🚙 Rover R-001" },
+      { id: "Z003", zone: "Zone C", area: "50 km²", lat: 11.276, lng: 76.958, veg: "Dense Teak Forest", risk: "Critical Risk (91%)", color: "#EF4444", deployed: "📡 S-003 | 🔥 Hotspot H-001 | 🚙 R-002" },
+      { id: "Z004", zone: "Zone D", area: "50 km²", lat: 11.260, lng: 76.975, veg: "High Dry Scrub", risk: "High Risk (78%)", color: "#F97316", deployed: "📡 Sensor S-004 | 🚙 Rover R-003" },
+      { id: "Z005", zone: "Zone E", area: "50 km²", lat: 11.215, lng: 76.945, veg: "Low Grassland", risk: "Low Risk (18%)", color: "#10B981", deployed: "📡 Sensor S-005 (Normal)" }
+    ];
+
+    // Render Master Geographic Zones Table
+    function renderZonesTable(zones = ZONES_EXTENDED) {
+      const mapZoneBody = document.getElementById('mapZoneTableBody');
+      if (!mapZoneBody) return;
+      mapZoneBody.innerHTML = '';
+      const list = (zones && zones.length > 0 && zones[0].area) ? zones : ZONES_EXTENDED;
+      list.forEach(z => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td style="font-weight: 700; color: #FFF; font-family:'JetBrains Mono';">${z.id || 'Z00' + z.zone.slice(-1)}</td>
+          <td style="font-weight: 700; color: #FFF;">${z.zone || z.zone_name}</td>
+          <td>${z.area || '50 km²'}</td>
+          <td style="font-family:'JetBrains Mono'; font-size:12px;">${z.lat || z.latitude}° N, ${z.lng || z.longitude}° E</td>
+          <td style="color:var(--text-muted);">${z.veg || 'High Density'}</td>
+          <td><span class="badge" style="background: ${z.color || '#EF4444'}22; color: ${z.color || '#EF4444'}; border: 1px solid ${z.color || '#EF4444'}66; font-weight:700;">${z.risk || z.risk_level}</span></td>
+          <td style="font-size:12px;">${z.deployed || '📡 Monitored'}</td>
+          <td><button class="btn btn-outline" style="padding:4px 10px; font-size:11px;" onclick="zoomToSector('${z.zone || z.zone_name}')">FOCUS SECTOR</button></td>
+        `;
+        mapZoneBody.appendChild(tr);
+      });
+    }
+
+    // Direct Geographic Sector Zoom
+    function zoomToSector(sector) {
+      if (sector === 'ALL') {
+        fullMap.fitBounds(forestBounds, { padding: [30, 30] });
+        showToast("Centered: Entire 250 km² Western Forest Reserve");
+        return;
+      }
+      const target = ZONES_EXTENDED.find(z => z.zone === sector) || ZONES_DATA.find(z => z.zone === sector);
+      if (target) {
+        fullMap.flyTo([target.lat, target.lng], 15, { duration: 1.2 });
+        showToast(`Focusing Sector: ${sector} (${target.lat}° N, ${target.lng}° E)`);
+        if (sector === 'Zone C' && typeof fullHotspot !== 'undefined') {
+          setTimeout(() => fullHotspot.openPopup(), 1300);
+        }
+      }
+    }
+
+    // Fullscreen Toggle for Map
+    function toggleMapFullscreen() {
+      const mapEl = document.getElementById('forest-map-full');
+      const btn = document.getElementById('fullscreenToggleBtn');
+      mapEl.classList.toggle('map-fullscreen');
+      const isFull = mapEl.classList.contains('map-fullscreen');
+      btn.innerText = isFull ? "✕ EXIT FULLSCREEN" : "⛶ EXPAND FULLSCREEN";
+      setTimeout(() => fullMap.invalidateSize(), 250);
+      showToast(isFull ? "Map expanded to Fullscreen" : "Exited Fullscreen");
+    }
+
+    // =========================================================================
+    // 📡 INITIALIZE & SYNC WITH BACKEND REST APIS
+    // =========================================================================
+    async function syncBackendData() {
+      // 1. Fetch Dashboard Stats
+      const dashData = await fetchAPI('/api/dashboard');
+      if (dashData && dashData.summary) {
+        document.querySelectorAll('.stat-card .stat-value')[0].innerText = dashData.summary.active_sensors;
+        document.querySelectorAll('.stat-card .stat-value')[1].innerText = "0" + dashData.summary.high_risk_areas;
+        document.querySelectorAll('.stat-card .stat-value')[2].innerText = "0" + dashData.summary.active_rovers;
+        document.querySelectorAll('.stat-card .stat-value')[3].innerText = "0" + dashData.summary.hotspots;
+      }
+
+      // 2. Fetch Zones
+      const zonesData = await fetchAPI('/api/zones');
+      if (zonesData && zonesData.length > 0) {
+        renderZonesTable(zonesData);
+      } else {
+        renderZonesTable(ZONES_DATA);
+      }
+
+      // 3. Fetch Sensors
+      const sensorsData = await fetchAPI('/api/sensors');
+      if (sensorsData && sensorsData.length > 0) {
+        renderSensorsTable(sensorsData);
+      } else {
+        renderSensorsTable(SENSORS_DATA);
+      }
+
+      // 4. Fetch Historical Readings for S-003 Chart
+      const readingsData = await fetchAPI('/api/sensors/S-003/readings');
+      if (readingsData && readingsData.length > 0) {
+        console.log("Historical readings loaded from DB:", readingsData);
+      }
+    }
+
+    // Call sync on startup
+    syncBackendData();
+
+    // =========================================================================
+    // 🛰️ REAL GEOGRAPHICAL MAP SYSTEM — ISOLATED FOREST AREA (250 km²)
+    // =========================================================================
+
+    // 250 km² Western Forest Zone Exact Perimeter Polygon
+    const forestBoundaryCoords = [
+      [11.205, 76.895],
+      [11.225, 76.885],
+      [11.260, 76.895],
+      [11.285, 76.920],
+      [11.298, 76.945],
+      [11.295, 76.975],
+      [11.280, 76.995],
+      [11.250, 76.998],
+      [11.220, 76.985],
+      [11.200, 76.955],
+      [11.195, 76.925]
+    ];
+
+    const forestBounds = L.latLngBounds(forestBoundaryCoords);
+
+    // World Inverted Mask (Hole reveals ONLY the 250 km² Forest Area)
+    const worldOuterBounds = [
+      [-85, -180],
+      [-85, 180],
+      [85, 180],
+      [85, -180]
+    ];
+    const invertedForestMask = [worldOuterBounds, forestBoundaryCoords];
+
+    // Base Tile Layers (Real High-Resolution Earth Imagery)
+    const esriSatellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+      attribution: 'Tiles &copy; Esri, Maxar, Earthstar Geographics, USDA, USGS',
+      maxZoom: 19,
+      minZoom: 11
+    });
+
+    const topoRelief = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+      attribution: 'Map data: &copy; OpenStreetMap contributors, SRTM | Map style: &copy; OpenTopoMap',
+      maxZoom: 17,
+      minZoom: 11
+    });
+
+    const tacticalDark = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; CartoDB &copy; OpenStreetMap',
+      maxZoom: 19,
+      minZoom: 11
+    });
+
+    const osmStandard = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors',
+      maxZoom: 19,
+      minZoom: 11
+    });
+
+    // Layer Groups
+    const sensorsLayer = L.layerGroup();
+    const roversLayer = L.layerGroup();
+    const hotspotsLayer = L.layerGroup();
+    const zonesLayer = L.layerGroup();
+    const maskLayer = L.layerGroup();
+
+    // Initialize Full GIS Map — Strictly Centered and Bound to the Forest Area
+    let fullMap = L.map('forest-map-full', {
+      zoomControl: true,
+      minZoom: 12,
+      maxZoom: 18,
+      maxBounds: forestBounds.pad(0.25),
+      maxBoundsViscosity: 0.9,
+      layers: [esriSatellite, zonesLayer, sensorsLayer, roversLayer, hotspotsLayer, maskLayer]
+    });
+
+    // Fit View Strictly to the Forest Area
+    fullMap.fitBounds(forestBounds, { padding: [20, 20] });
+
+    // Apply Inverted Tactical Mask (Darkens everything OUTSIDE the forest reserve)
+    L.polygon(invertedForestMask, {
+      color: '#10B981',
+      weight: 3,
+      fillColor: '#070B0E',
+      fillOpacity: 0.92,
+      stroke: true
+    }).addTo(maskLayer).bindPopup("<strong>Restricted Zone</strong><br/>Outside Western Forest Surveillance Boundary");
+
+    // Luminous Forest Boundary Border Line
+    L.polyline(forestBoundaryCoords.concat([forestBoundaryCoords[0]]), {
+      color: '#10B981',
+      weight: 3,
+      opacity: 1,
+      dashArray: '8, 6',
+      lineCap: 'round'
+    }).addTo(maskLayer);
+
+    // Forest Area Badge Overlay
+    const forestBadge = L.control({ position: 'topleft' });
+    forestBadge.onAdd = function() {
+      const div = L.DomUtil.create('div', 'forest-badge-hud');
+      div.style.background = 'rgba(7, 11, 14, 0.9)';
+      div.style.padding = '8px 14px';
+      div.style.borderRadius = '8px';
+      div.style.border = '1px solid #10B981';
+      div.style.boxShadow = '0 0 15px rgba(16, 185, 129, 0.3)';
+      div.style.color = '#FFF';
+      div.style.fontSize = '12px';
+      div.style.fontWeight = 'bold';
+      div.innerHTML = `🌲 WESTERN FOREST ZONE — 250 km² ISOLATED SECTOR`;
+      return div;
+    };
+    forestBadge.addTo(fullMap);
+
+    // Layer Switcher Control
+    const baseMaps = {
+      "🛰️ Real Satellite Imagery (Forest Only)": esriSatellite,
+      "🏔️ Topographic Terrain": topoRelief,
+      "🌑 Tactical Dark Mode": tacticalDark,
+      "🌿 OpenStreetMap": osmStandard
+    };
+
+    const overlayMaps = {
+      "🛡️ Forest Exclusion Mask": maskLayer,
+      "🗺️ Risk Zones (A-E)": zonesLayer,
+      "📡 Active Sensors": sensorsLayer,
+      "🚙 Autonomous Rovers": roversLayer,
+      "🔥 Thermal Hotspots": hotspotsLayer
+    };
+
+    L.control.layers(baseMaps, overlayMaps, { position: 'topright', collapsed: false }).addTo(fullMap);
+
+    // Scale Bar
+    L.control.scale({ imperial: false, metric: true, position: 'bottomleft' }).addTo(fullMap);
+
+    // Real Coordinates & Elevation HUD
+    const coordsHUD = L.control({ position: 'bottomright' });
+    coordsHUD.onAdd = function() {
+      const div = L.DomUtil.create('div', 'coords-hud');
+      div.style.background = 'rgba(7, 11, 14, 0.85)';
+      div.style.padding = '6px 12px';
+      div.style.borderRadius = '6px';
+      div.style.border = '1px solid var(--surface-border)';
+      div.style.color = 'var(--text-muted)';
+      div.style.fontSize = '11px';
+      div.style.fontFamily = "'JetBrains Mono', monospace";
+      div.innerHTML = `GPS: 11.2480° N, 76.9420° E | Sector: Western Forest (250 km²)`;
+      return div;
+    };
+    coordsHUD.addTo(fullMap);
+
+    fullMap.on('mousemove', function(e) {
+      const inside = forestBounds.contains(e.latlng);
+      document.querySelector('.coords-hud').innerHTML = 
+        `GPS: ${e.latlng.lat.toFixed(4)}° N, ${e.latlng.lng.toFixed(4)}° E | ${inside ? '🌲 INSIDE FOREST RESERVE' : '⬛ OUTSIDE SECTOR'}`;
+    });
+
+    // Forest Risk Zones (Circles with gradient glow)
+    ZONES_DATA.forEach(z => {
+      const circle = L.circle([z.lat, z.lng], {
+        color: z.color,
+        fillColor: z.color,
+        fillOpacity: z.risk.includes('Critical') ? 0.35 : 0.2,
+        radius: z.risk.includes('Critical') ? 1600 : 1300,
+        weight: z.risk.includes('Critical') ? 3 : 1.5
+      }).addTo(zonesLayer);
+
+      circle.bindPopup(`
+        <div style="font-family:'Outfit', sans-serif;">
+          <h4 style="margin:0 0 4px 0; color:#FFF;">${z.zone}</h4>
+          <div style="font-size:12px; color:${z.color}; font-weight:bold;">Risk Level: ${z.risk}</div>
+          <div style="font-size:11px; color:#9CA3AF; margin-top:4px;">Coordinates: ${z.lat}° N, ${z.lng}° E</div>
+        </div>
+      `);
+    });
+
+    // Custom Icon Factory for Real GIS Rendering
+    function createCustomIcon(emoji, bg, glowColor, size = 34) {
+      return L.divIcon({
+        className: 'custom-gis-marker',
+        html: `
+          <div style="
+            width: ${size}px;
+            height: ${size}px;
+            background: ${bg};
+            border: 2px solid ${glowColor};
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: ${size * 0.5}px;
+            box-shadow: 0 0 16px ${glowColor};
+            cursor: pointer;
+          ">
+            ${emoji}
+          </div>
+        `,
+        iconSize: [size, size],
+        iconAnchor: [size / 2, size / 2],
+        popupAnchor: [0, -size / 2]
+      });
+    }
+
+    // Hotspot Markers with Thermal Pulsing Auroras
+    const hotspotIcon = createCustomIcon('🔥', 'rgba(239, 68, 68, 0.85)', '#EF4444', 38);
+    const fullHotspot = L.marker([11.276, 76.958], { icon: hotspotIcon }).addTo(hotspotsLayer).bindPopup(`
+      <div style="font-family:'Outfit',sans-serif;">
+        <span style="background:#EF4444; color:#FFF; font-size:10px; font-weight:bold; padding:2px 6px; border-radius:3px;">CRITICAL THERMAL ANOMALY</span>
+        <h3 style="margin:6px 0 2px 0;">🔥 Hotspot H-001 (Zone C)</h3>
+        <div style="font-size:12px; line-height:1.5;">
+          <strong>Temperature:</strong> <span style="color:#EF4444;">68°C</span><br/>
+          <strong>Smoke Level:</strong> 82 ppm<br/>
+          <strong>Fire Probability:</strong> <span style="color:#EF4444; font-weight:bold;">94%</span><br/>
+          <strong>Detected By:</strong> Rover R-002 (10:38 AM)<br/>
+          <strong>Wind:</strong> 18 km/h | <strong>Vegetation:</strong> Dense
+        </div>
+      </div>
+    `);
+
+    // Hotspot H-002, H-003, H-004
+    L.marker([11.271, 76.962], { icon: createCustomIcon('🔥', 'rgba(239, 68, 68, 0.75)', '#EF4444', 32) })
+      .addTo(hotspotsLayer).bindPopup("<strong>🔥 Hotspot H-002</strong><br/>Zone C | Temp: 61°C | Prob: 88%");
+    L.marker([11.260, 76.975], { icon: createCustomIcon('🔥', 'rgba(249, 115, 22, 0.8)', '#F97316', 32) })
+      .addTo(hotspotsLayer).bindPopup("<strong>🔥 Hotspot H-003</strong><br/>Zone D | Temp: 51°C | Prob: 72%");
+    L.marker([11.248, 76.932], { icon: createCustomIcon('🔥', 'rgba(245, 158, 11, 0.8)', '#F59E0B', 30) })
+      .addTo(hotspotsLayer).bindPopup("<strong>🔥 Hotspot H-004</strong><br/>Zone B | Temp: 47°C | Prob: 61%");
+
+    // Rover Markers & Animated Navigation Trajectory
+    const roverIcon = createCustomIcon('🚙', 'rgba(14, 165, 233, 0.85)', '#38BDF8', 36);
+    L.marker([11.245, 76.921], { icon: roverIcon }).addTo(roversLayer).bindPopup(`
+      <div style="font-family:'Outfit',sans-serif;">
+        <h3 style="margin:0 0 4px 0;">🚙 Rover R-001</h3>
+        <div style="font-size:12px; color:#38BDF8; font-weight:bold;">STATUS: MOVING TO ZONE C</div>
+        <div style="font-size:11.5px; line-height:1.5; margin-top:4px;">
+          Speed: 4.5 km/h | Battery: 82%<br/>
+          Distance to Target: 2.4 km | ETA: 32 min<br/>
+          <strong>Mission:</strong> Investigate Critical Risk Area
+        </div>
+      </div>
+    `);
+
+    L.marker([11.276, 76.955], { icon: createCustomIcon('🔍', 'rgba(167, 139, 250, 0.85)', '#A78BFA', 34) })
+      .addTo(roversLayer).bindPopup("<strong>🔍 Rover R-002</strong><br/>Zone C Core | Status: Investigating Hotspot H-001");
+    L.marker([11.258, 76.970], { icon: roverIcon })
+      .addTo(roversLayer).bindPopup("<strong>🚙 Rover R-003</strong><br/>Zone D | Speed: 5.2 km/h | Battery: 91%");
+
+    // Animated Mission Route from Rover R-001 to Hotspot H-001
+    const r001Route = [
+      [11.245, 76.921],
+      [11.252, 76.932],
+      [11.261, 76.945],
+      [11.276, 76.958]
+    ];
+    L.polyline(r001Route, {
+      color: '#38BDF8',
+      weight: 3,
+      dashArray: '8, 8',
+      opacity: 0.85
+    }).addTo(roversLayer).bindPopup("<strong>Rover R-001 Trajectory</strong><br/>ETA: 32 min | Distance: 2.4 km");
+
+    // Sensor Markers (S-001 to S-005)
+    const sensorCoords = [
+      { id: "S-001", lat: 11.228, lng: 76.912, temp: "31°C", color: "#10B981" },
+      { id: "S-002", lat: 11.243, lng: 76.928, temp: "37°C", color: "#F59E0B" },
+      { id: "S-003", lat: 11.276, lng: 76.958, temp: "42°C", color: "#EF4444" },
+      { id: "S-004", lat: 11.262, lng: 76.972, temp: "35°C", color: "#F97316" },
+      { id: "S-005", lat: 11.216, lng: 76.944, temp: "29°C", color: "#10B981" }
+    ];
+
+    sensorCoords.forEach(sc => {
+      L.marker([sc.lat, sc.lng], { icon: createCustomIcon('📡', 'rgba(15, 23, 42, 0.85)', sc.color, 28) })
+        .addTo(sensorsLayer)
+        .bindPopup(`<strong>📡 Sensor ${sc.id}</strong><br/>Temp: ${sc.temp} | Loc: ${sc.lat}° N, ${sc.lng}° E`);
+    });
+
+    // Preview Map on Dashboard (Isolated Forest Area)
+    let previewMap = L.map('forest-map-preview', { 
+      zoomControl: false,
+      maxBounds: forestBounds.pad(0.15),
+      minZoom: 11,
+      maxZoom: 16
+    });
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+      maxZoom: 18
+    }).addTo(previewMap);
+
+    previewMap.fitBounds(forestBounds, { padding: [10, 10] });
+
+    // Apply Inverted Mask to Preview Map
+    L.polygon(invertedForestMask, {
+      color: '#10B981',
+      weight: 2,
+      fillColor: '#070B0E',
+      fillOpacity: 0.92
+    }).addTo(previewMap);
+
+    ZONES_DATA.forEach(z => {
+      L.circle([z.lat, z.lng], {
+        color: z.color,
+        fillColor: z.color,
+        fillOpacity: 0.25,
+        radius: 1100
+      }).addTo(previewMap);
+    });
+    L.marker([11.276, 76.958], { icon: hotspotIcon }).addTo(previewMap);
+
+    function focusZoneC() {
+      if (fullMap) {
+        fullMap.flyTo([11.276, 76.958], 15, { duration: 1.5 });
+        setTimeout(() => fullHotspot.openPopup(), 1600);
+      }
+      showToast("Satellite zoomed to Zone C — Hotspot H-001");
+    }
+
+    async function dispatchRover(roverId, targetZone) {
+      showToast(`Transmitting Order: Dispatching ${roverId} to ${targetZone}...`);
+      try {
+        const res = await fetch(`${API_BASE}/api/rovers/dispatch`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ rover_id: roverId, target_zone: targetZone })
+        });
+        if (res.ok) {
+          const result = await res.json();
+          showToast(`✓ Mission Confirmed: ${roverId} dispatched to ${targetZone} (ID: ${result.mission_id})`);
+          syncBackendData();
+          return;
+        }
+      } catch (err) {
+        // Fallback for offline mode
+      }
+      showToast(`Tactical Order Sent: ${roverId} dispatched to ${targetZone}!`);
+    }
+
+    // Filter Chips for GIS Objects
+    function filterMap(filterName, elem) {
+      document.querySelectorAll('.filter-chip').forEach(el => el.classList.remove('active'));
+      elem.classList.add('active');
+
+      if (filterName === 'All') {
+        fullMap.addLayer(sensorsLayer);
+        fullMap.addLayer(roversLayer);
+        fullMap.addLayer(hotspotsLayer);
+        fullMap.addLayer(zonesLayer);
+      } else if (filterName === 'Sensors') {
+        fullMap.addLayer(sensorsLayer);
+        fullMap.removeLayer(roversLayer);
+        fullMap.removeLayer(hotspotsLayer);
+        fullMap.removeLayer(zonesLayer);
+      } else if (filterName === 'Risk Areas') {
+        fullMap.removeLayer(sensorsLayer);
+        fullMap.removeLayer(roversLayer);
+        fullMap.removeLayer(hotspotsLayer);
+        fullMap.addLayer(zonesLayer);
+      } else if (filterName === 'Rovers') {
+        fullMap.removeLayer(sensorsLayer);
+        fullMap.addLayer(roversLayer);
+        fullMap.removeLayer(hotspotsLayer);
+        fullMap.removeLayer(zonesLayer);
+      } else if (filterName === 'Hotspots') {
+        fullMap.removeLayer(sensorsLayer);
+        fullMap.removeLayer(roversLayer);
+        fullMap.addLayer(hotspotsLayer);
+        fullMap.removeLayer(zonesLayer);
+      }
+      showToast(`GIS Filter Active: ${filterName}`);
+    }
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.innerText = msg;
+      t.style.display = 'block';
+      setTimeout(() => { t.style.display = 'none'; }, 3000);
+    }
+
+    // Automatically open Full Geographical Map View on load
+    window.addEventListener('DOMContentLoaded', () => {
+      setTimeout(() => {
+        openModule('Forest Map');
+      }, 100);
+    });
+  </script>
+</body>
+</html>
